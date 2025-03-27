@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -54,6 +53,7 @@ coverage.xml
 # Translations
 *.mo
 *.pot
+*.jou
 
 # Django stuff:
 *.log
@@ -129,6 +129,9 @@ dmypy.json
 .vscode/settings.json
 
 
-#Exceptions
-build/README.md
-build/requirements.txt
+# Remove build file from git
+build/
+# Build file exceptions
+!build/README.md
+!build/adder_tb_top_sim.wcfg
+!build/requirements.txt
