@@ -18,7 +18,6 @@ check_clean() {
     CURRENT_DIR=$(dirname "$0")
     find ${CURRENT_DIR}/../build -type f ! -name '*.md' ! -name '*.wcfg' -exec rm -f {} +
     echo "Cleaned all files in build directory except *.md and *.wcfg"
-    exit 0
 }
 
 # Check if help is requested
@@ -26,19 +25,20 @@ check_help() {
     echo "Usage: xrun.sh [options]"
     echo ""
     echo "Options:"
-    echo "  -top=<top_name>       Specify the top module name"
-    echo "  -test=<test_name>     Specify the test name (default: adder_basic_test)"
-    echo "  --t <top_name>        Specify the top module name (short option)"
-    echo "  --h, -help            Display this help message"
+    echo "  --t|-top <top_name>              Specify the top module name"
+    echo "  --N|-name_of_test <test_name>    Specify the test name (default: adder_basic_test)"
+    echo "  --h|help                         Display this help message"
+    echo "  --c|-clean                       Clean build"
+    echo "  --v|-vivado <\"--vivado_params\">  Pass Vivado parameters"
     echo ""
-    echo "Use --R to run all, --g to gui, and -view top_sim.wcfg to load waveforms"
+    echo "Use -v \"--R\" to run all, --v \"--g\" to gui, and --v \"--g -view top_sim.wcfg\" to load waveforms"
     exit 0
 }
 
 
 # Display usage information
 display_usage() {
-    echo "Use --R to run all, --g to gui, and -view top_sim.wcfg to load waveforms"
+    echo "../bin/xrun.sh  -t adder_tb_top --n adder_basic_test --c -v \"--g -view adder_tb_top_sim.wcfg\" "
 }
 
 # Display error message and exit
@@ -50,62 +50,52 @@ error_exit() {
 
 # Parse parameters using getopts
 parse_params() {
-    TEST_NAME="adder_basic_test"  # Set default value for TEST_NAME
-    while getopts ":t:-:" opt; do
-        case "$opt" in
-            -)
-                IFS='=' read -r key value <<< "${OPTARG}"
-                case "$key" in
-                    top)
-                        TOP_NAME=$value
-                        # Remove parsed options from $@
-                        shift $((OPTIND - 1))
-                        ;;
-                    test)
-                        TEST_NAME=$value
-                        # Remove parsed options from $@
-                        shift $((OPTIND - 1))
-                        ;;
-                    clean)
-                        check_clean
-                        ;;
-                    help)
-                        check_help
-                        ;;
-                    *)
-                        echo "INFO: Parameter --${OPTARG} is being passed direct to Vivado"
-                        ;;
-                esac
+    # Set default value for TEST_NAME
+    TEST_NAME="adder_basic_test"  
+    # Set current directory
+    CURRENT_DIR=$(dirname "$0")   
+    options=$(getopt -a --longoptions help,clean,top:,name_of_test:,vivado: -n "xrun" -- ${0} "${@}")
+    eval set -- "$options"
+    while true; do
+        echo "$1"
+        case "$1" in
+            --top)
+                shift
+                TOP_NAME="$1"
+                echo "$1"
                 ;;
-            t)
-                TOP_NAME=$OPTARG
-                # Remove parsed options from $@
-                shift $((OPTIND - 1))
+            --name_of_test)
+                shift
+                TEST_NAME="$1"
+                echo "$1"
                 ;;
-            h)
-                check_help
-                ;;
-            c)
+            --clean)
                 check_clean
                 ;;
-            \?)
-                echo "INFO: Parameter -${OPTARG} is being passed direct to Vivado"
+            --help)
+                check_help
                 ;;
-            :)
-                error_exit "Option -$OPTARG requires an argument"
+            --vivado)
+                shift
+                VIVADO_PARMS="$1"
+                echo "INFO: Parameters ${1} is being passed direct to Vivado"
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                error_exit "Option '${1}' requires an argument"
                 ;;
         esac
+        shift
     done
 }
 
 # Main script execution
 main() {
-    # Set current directory
-    CURRENT_DIR=$(dirname "$0")
-    
     parse_params "$@"
     display_usage
-
 
     # Check if the first parameter is provided
     if [ -z "$1" ]; then
@@ -125,7 +115,7 @@ main() {
     # Run simulation
     xvlog -L uvm -sv "${XILINX_VIVADO}/data/system_verilog/uvm_1.2/uvm_macros.svh" ${list}
     xelab ${TOP_NAME} --timescale 1ns/1ps -L uvm -s top_sim --debug typical --mt 16 --incr
-    xsim top_sim ${@:${OPTIND}} --testplusarg UVM_TESTNAME=${TEST_NAME}
+    xsim top_sim ${VIVADO_PARMS} --testplusarg UVM_TESTNAME=${TEST_NAME}
 }
 
 main "$@"
