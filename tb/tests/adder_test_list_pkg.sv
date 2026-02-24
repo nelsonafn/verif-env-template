@@ -22,6 +22,7 @@ package adder_test_list_pkg;
    * Including basic test definition
    */
   `include "adder_basic_test.sv"
+  `include "adder_corner_test.sv"
 
 endpackage 
 

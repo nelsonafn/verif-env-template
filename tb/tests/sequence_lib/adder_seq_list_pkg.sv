@@ -20,9 +20,10 @@ package adder_seq_list_pkg;
   import adder_env_pkg::*;
 
   /*
-   * Including adder basic sequence 
+   * Including basic sequence definition
    */
   `include "adder_basic_seq.sv"
+  `include "adder_corner_seq.sv"
 
 endpackage
 
