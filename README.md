@@ -63,48 +63,48 @@ $ source /opt/Xilinx/Vitis/2024.1/settings64.sh
 $ source /opt/Xilinx/Vivado/2024.1/.settings64-Vivado.sh 
 ```
 
-### Step 2: Configure the CMake Build
-This project uses CMake to automate the Vivado simulation flow (`xvlog`, `xelab`, `xsim`). You configure the parameters once and let CMake handle out-of-source directories.
-
-```bash
-# General Syntax
-cmake -S . -B build -DTOP_NAME=<top_name> -DTEST_NAME=<test_name>
-```
+### Step 2: Configure the Build
+This project uses CMake to automate the Vivado simulation flow (`xvlog`, `xelab`, `xsim`), and provides a simple wrapper for ease of use.
 
 #### Default / Common Configuration
 To configure for compiling `adder_tb_top` and running `adder_basic_test`:
 ```bash
-$ cmake -S . -B build -DTOP_NAME=adder_tb_top -DTEST_NAME=adder_basic_test
+$ ./configure
+```
+
+#### Custom Parameter Configuration
+```bash
+$ ./configure --top <top_name> --test <test_name>
 ```
 
 ### Step 3: Run the simulation
-After configuring, you can invoke the simulation natively through the CMake build system:
+After configuring, you can invoke the simulation via the standard `make` wrapper in the root directory:
 
 #### Run all tests (Batch mode)
 To run all tests silently using the `-R` argument (default behavior when configured):
 ```bash
-$ cmake --build build --target sim
+$ make sim
 ```
 
 #### Open the GUI (and waveform structure)
 To quickly open the `xsim` GUI loaded with your `.wcfg` waveform setup:
 ```bash
-$ cmake --build build --target gui
+$ make gui
 ```
 
 ### Step 4: Clean Build
-To clean the entire build cache (equivalent to `--clean`), simply remove the build directory and reconfigure:
+To clean the entire build cache (equivalent to standard `--clean`):
 ```bash
-$ rm -rf build/
-$ cmake -S . -B build -DTOP_NAME=adder_tb_top
+$ make clean
 ```
 
-### Summary of CMake Arguments
+### Summary of Configure Arguments
 | Variable | Default Value | Description |
 |---|---|---|
-| `TOP_NAME` | `adder_tb_top` | Specifies the top-level testbench module to load in elaboration. |
-| `TEST_NAME` | `adder_basic_test` | The UVM test name passed directly to `+UVM_TESTNAME` in `xsim`. |
-| `VIVADO_PARMS` | `--R` | Passes arbitrary flags natively to the simulation engine. |
+| `--top` | `adder_tb_top` | Specifies the top-level testbench module to load in elaboration. |
+| `--test` | `adder_basic_test` | The UVM test name passed directly to `+UVM_TESTNAME` in `xsim`. |
+| `--vivado` | `--R` | Passes arbitrary flags natively to the simulation engine. |
+
 
 ## Important Information
 
