@@ -74,19 +74,33 @@ function(create_library_from_srclist SRCLIST_PATH TARGET_LIB)
         set(TARGET_NAME "compile_${TARGET_LIB}")
         set(STAMP_FILE "${CMAKE_BINARY_DIR}/${TARGET_LIB}.stamp")
         
-        # xvlog command (depends on the specific SV files)
+        # Broaden dependencies to include all .sv and .svh files in the same directories
+        # This implicitly catches all `include files that aren't explicitly inside the .srclist
+        set(ALL_DEPENDS ${SV_FILES})
+        foreach(SV_FILE IN LISTS SV_FILES)
+            get_filename_component(SV_DIR "${SV_FILE}" DIRECTORY)
+            file(GLOB DIR_SVS "${SV_DIR}/*.sv" "${SV_DIR}/*.svh")
+            list(APPEND ALL_DEPENDS ${DIR_SVS})
+        endforeach()
+        if(ALL_DEPENDS)
+            list(REMOVE_DUPLICATES ALL_DEPENDS)
+        endif()
+        
+        # In EDA flows, using a stamp file with an add_custom_command ensures that the
+        # compilation only runs when the `.sv` dependencies are newer than the stamp file.
         add_custom_command(
             OUTPUT "${STAMP_FILE}"
             COMMAND xvlog -work ${TARGET_LIB} -L uvm -sv "$ENV{XILINX_VIVADO}/data/system_verilog/uvm_1.2/uvm_macros.svh" ${SV_FILES}
             COMMAND touch "${STAMP_FILE}"
-            DEPENDS ${SV_FILES}
+            DEPENDS ${ALL_DEPENDS}
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             COMMENT "Compiling ${TARGET_LIB} from lib list..."
             VERBATIM
         )
         
-        # Create a custom target that "drives" the stamp file
+        # The custom target just drives the creation of the stamp file
         add_custom_target(${TARGET_NAME} DEPENDS "${STAMP_FILE}")
+        
         if(TARGET_DEPENDENCIES)
             add_dependencies(${TARGET_NAME} ${TARGET_DEPENDENCIES})
         endif()
