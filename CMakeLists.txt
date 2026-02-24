@@ -144,9 +144,11 @@ add_custom_target(elaborate
     VERBATIM
 )
 
+set(DOLLAR "$")
+
 # 4. Sim target
 add_custom_target(sim
-    COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${TEST_NAME}
+    COMMAND bash -c "xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}{TEST_NAME:-${TEST_NAME}}"
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running standard simulation..."
@@ -155,7 +157,7 @@ add_custom_target(sim
 
 # 5. GUI target
 add_custom_target(gui
-    COMMAND xsim top_sim --gui --view ${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${TEST_NAME}
+    COMMAND bash -c "xsim top_sim --gui --view ${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}{TEST_NAME:-${TEST_NAME}}"
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Opening simulation in Vivado GUI..."
@@ -166,3 +168,36 @@ add_custom_target(gui
 set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES 
     "xsim.dir;xvlog.log;xvlog.pb;xelab.log;xelab.pb;xsim.log;xsim.jou;webtalk_pn.xml;webtalk.jou;xsim_webtalk.tcl;xsim.covdb;top_sim.wdb;tr_db.log;*.stamp"
 )
+
+# 6. Dynamically Generate Native Targets for All Tests
+file(GLOB TEST_FILES "${CMAKE_SOURCE_DIR}/tb/tests/*_test.sv")
+foreach(TEST_FILE IN LISTS TEST_FILES)
+    get_filename_component(INDIVIDUAL_TEST_NAME "${TEST_FILE}" NAME_WE)
+    
+    # Create a wrapper target for exactly this test name (Standard mode)
+    add_custom_target(${INDIVIDUAL_TEST_NAME}
+        COMMAND bash -c "xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
+        DEPENDS elaborate
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Running simulation: ${INDIVIDUAL_TEST_NAME}..."
+        USES_TERMINAL
+    )
+    
+    # Explicit SIM target (so user can type `make sim_adder_corner_test`)
+    add_custom_target(sim_${INDIVIDUAL_TEST_NAME}
+        COMMAND bash -c "xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
+        DEPENDS elaborate
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Running simulation: ${INDIVIDUAL_TEST_NAME}..."
+        USES_TERMINAL
+    )
+    
+    # Explicit GUI target (so user can type `make gui_adder_corner_test`)
+    add_custom_target(gui_${INDIVIDUAL_TEST_NAME}
+        COMMAND bash -c "xsim top_sim --gui --view ${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
+        DEPENDS elaborate
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Opening GUI simulation: ${INDIVIDUAL_TEST_NAME}..."
+        USES_TERMINAL
+    )
+endforeach()
