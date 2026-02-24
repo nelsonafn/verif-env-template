@@ -11,7 +11,6 @@ if(NOT DEFINED ENV{XILINX_VIVADO})
     message(WARNING "XILINX_VIVADO environment variable is not set. Ensure you have sourced settings64.sh!")
 endif()
 
-
 # Convert VIVADO_PARMS so that multiple spaces/args aren't grouped as a single string
 separate_arguments(VIVADO_PARMS_LIST UNIX_COMMAND "${VIVADO_PARMS}")
 
@@ -22,24 +21,116 @@ message(STATUS "  - Test Name      : ${TEST_NAME}")
 message(STATUS "  - Vivado Params  : ${VIVADO_PARMS}")
 message(STATUS "--------------------------------------------------")
 
-# Compile target (evaluates the source lists dynamically at build time)
-add_custom_target(compile
-    COMMAND bash -c "xvlog -L uvm -sv \"$ENV{XILINX_VIVADO}/data/system_verilog/uvm_1.2/uvm_macros.svh\" `bash \"${CMAKE_SOURCE_DIR}/bin/srclist2path.sh\" \"${CMAKE_SOURCE_DIR}/srclist/${TOP_NAME}.srclist\"`"
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Compiling SystemVerilog and UVM sources dynamically..."
-    VERBATIM
-)
 
-# Elaborate target
+# Global variables to track state across recursive calls
+set(PROCESSED_SRCLISTS "" CACHE INTERNAL "")
+set_property(GLOBAL PROPERTY ALL_COMPILE_TARGETS "")
+set_property(GLOBAL PROPERTY ALL_SIM_LIBS "")
+
+# Function to parse a srclist and create an xvlog target for it
+function(create_library_from_srclist SRCLIST_PATH TARGET_LIB)
+    if("${SRCLIST_PATH}" IN_LIST PROCESSED_SRCLISTS)
+        return()
+    endif()
+    set(PROCESSED_SRCLISTS "${PROCESSED_SRCLISTS};${SRCLIST_PATH}" CACHE INTERNAL "")
+
+    # 1) Tell CMake to re-run configure if this srclist is modified
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${SRCLIST_PATH}")
+
+    if(NOT EXISTS "${SRCLIST_PATH}")
+        message(FATAL_ERROR "Source list not found: ${SRCLIST_PATH}")
+    endif()
+
+    file(STRINGS "${SRCLIST_PATH}" LINES)
+    
+    set(SV_FILES "")
+    set(TARGET_DEPENDENCIES "")
+
+    foreach(LINE IN LISTS LINES)
+        # Remove comments and whitespace
+        string(REGEX REPLACE "#.*$" "" LINE "${LINE}")
+        string(STRIP "${LINE}" LINE)
+        if(LINE STREQUAL "")
+            continue()
+        endif()
+
+        if(LINE MATCHES "\\.srclist$")
+            # If line is another srclist, compute its lib name and recurse
+            get_filename_component(SUBLIST_BASE_NAME "${LINE}" NAME_WE)
+            set(SUBLIST_LIB "${SUBLIST_BASE_NAME}_lib")
+            
+            # Recursively create library for the sub-srclist
+            create_library_from_srclist("${CMAKE_SOURCE_DIR}/${LINE}" "${SUBLIST_LIB}")
+            
+            list(APPEND TARGET_DEPENDENCIES "compile_${SUBLIST_LIB}")
+            set_property(GLOBAL APPEND PROPERTY ALL_SIM_LIBS "${SUBLIST_LIB}")
+        else()
+            # It's a systemverilog file
+            list(APPEND SV_FILES "${CMAKE_SOURCE_DIR}/${LINE}")
+        endif()
+    endforeach()
+
+    if(SV_FILES)
+        set(TARGET_NAME "compile_${TARGET_LIB}")
+        set(STAMP_FILE "${CMAKE_BINARY_DIR}/${TARGET_LIB}.stamp")
+        
+        # xvlog command (depends on the specific SV files)
+        add_custom_command(
+            OUTPUT "${STAMP_FILE}"
+            COMMAND xvlog -work ${TARGET_LIB} -L uvm -sv "$ENV{XILINX_VIVADO}/data/system_verilog/uvm_1.2/uvm_macros.svh" ${SV_FILES}
+            COMMAND touch "${STAMP_FILE}"
+            DEPENDS ${SV_FILES}
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Compiling ${TARGET_LIB} from lib list..."
+            VERBATIM
+        )
+        
+        # Create a custom target that "drives" the stamp file
+        add_custom_target(${TARGET_NAME} DEPENDS "${STAMP_FILE}")
+        if(TARGET_DEPENDENCIES)
+            add_dependencies(${TARGET_NAME} ${TARGET_DEPENDENCIES})
+        endif()
+        
+        # Register this compilation target globally
+        set_property(GLOBAL APPEND PROPERTY ALL_COMPILE_TARGETS "${TARGET_NAME}")
+    endif()
+endfunction()
+
+# 1. Start parsing from the TOP_NAME.srclist (which goes into the 'work' library)
+# Reset cached list for fresh configures
+set(PROCESSED_SRCLISTS "" CACHE INTERNAL "")
+create_library_from_srclist("${CMAKE_SOURCE_DIR}/srclist/${TOP_NAME}.srclist" "work")
+
+# 2. Get the collected global targets and libraries
+get_property(COMPILE_TARGETS GLOBAL PROPERTY ALL_COMPILE_TARGETS)
+get_property(SIM_LIBS GLOBAL PROPERTY ALL_SIM_LIBS)
+
+# Format libraries to link to Xelab
+set(XELAB_LIBS "")
+if(SIM_LIBS)
+    list(REMOVE_DUPLICATES SIM_LIBS)
+    foreach(LIB_NAME IN LISTS SIM_LIBS)
+        list(APPEND XELAB_LIBS "-L" "${LIB_NAME}")
+    endforeach()
+endif()
+
+# Global compile target depends on all the sub-targets found
+if(COMPILE_TARGETS)
+    add_custom_target(compile DEPENDS ${COMPILE_TARGETS})
+else()
+    add_custom_target(compile COMMENT "No sources to compile.")
+endif()
+
+# 3. Elaborate target
 add_custom_target(elaborate
-    COMMAND xelab ${TOP_NAME} --timescale 1ns/1ps -L uvm -s top_sim --debug typical --mt 16 --incr
+    COMMAND xelab ${TOP_NAME} -L uvm ${XELAB_LIBS} --timescale 1ns/1ps -s top_sim --debug typical --mt 16 --incr
     DEPENDS compile
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Elaborating design..."
     VERBATIM
 )
 
-# Sim target (default simulation task with provided parameters)
+# 4. Sim target
 add_custom_target(sim
     COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${TEST_NAME}
     DEPENDS elaborate
@@ -48,7 +139,7 @@ add_custom_target(sim
     USES_TERMINAL
 )
 
-# GUI target (forces GUI mode and automatically includes standard wcfg if available)
+# 5. GUI target
 add_custom_target(gui
     COMMAND xsim top_sim --gui --view ${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${TEST_NAME}
     DEPENDS elaborate
@@ -58,7 +149,6 @@ add_custom_target(gui
 )
 
 # Clean extra Vivado generated files
-# CMake's default `make clean` doesn't know about files generated by Vivado commands.
 set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES 
-    "xsim.dir;xvlog.log;xvlog.pb;xelab.log;xelab.pb;xsim.log;xsim.jou;webtalk_pn.xml;webtalk.jou;xsim_webtalk.tcl;xsim.covdb;top_sim.wdb;tr_db.log"
+    "xsim.dir;xvlog.log;xvlog.pb;xelab.log;xelab.pb;xsim.log;xsim.jou;webtalk_pn.xml;webtalk.jou;xsim_webtalk.tcl;xsim.covdb;top_sim.wdb;tr_db.log;*.stamp"
 )
