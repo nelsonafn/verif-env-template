@@ -9,61 +9,48 @@ $ source /opt/Xilinx/Vitis/2024.1/settings64.sh
 $ source /opt/Xilinx/Vivado/2024.1/.settings64-Vivado.sh 
 ```
 
-### Step 2: Run the simulation script
-The `xrun.sh` script automates the process of compiling, elaborating, and simulating the design. Below are the common usage scenarios:
+### Step 2: Configure the CMake Build
+This project uses CMake to automate the Vivado simulation flow (`xvlog`, `xelab`, `xsim`). You configure the parameters once and let CMake handle out-of-source directories.
 
-#### Run all tests
-To run all tests in batch mode:
 ```bash
-$ ../bin/xrun.sh -top adder_tb_top -vivado "--R"
+# General Syntax
+cmake -S . -B build -DTOP_NAME=<top_name> -DTEST_NAME=<test_name>
 ```
-- `-top adder_tb_top`: Specifies the top-level testbench module.
-- `--vivado "--R"`: Runs the simulation in batch mode.
 
-#### Open the GUI
-To open the Vivado GUI for debugging:
+#### Default / Common Configuration
+To configure for compiling `adder_tb_top` and running `adder_basic_test`:
 ```bash
-$ ../bin/xrun.sh -top adder_tb_top --c -vivado "--g"
+$ cmake -S . -B build -DTOP_NAME=adder_tb_top -DTEST_NAME=adder_basic_test
 ```
-- `--c`: Cleans the build directory before running.
-- `--vivado "--g"`: Opens the simulation in GUI mode.
 
-#### Load a waveform structure
-To load a specific waveform structure for analysis:
+### Step 3: Run the simulation
+After configuring, you can invoke the simulation natively through the CMake build system:
+
+#### Run all tests (Batch mode)
+To run all tests silently using the `-R` argument (default behavior when configured):
 ```bash
-$ ../bin/xrun.sh -top adder_tb_top --c -vivado "--g -view adder_tb_top_sim.wcfg"
+$ cmake --build build --target sim
 ```
-- `--vivado "--g -view adder_tb_top_sim.wcfg"`: Opens the GUI and loads the specified waveform configuration file.
 
-#### Run a specific test
-To run a specific test case:
+#### Open the GUI (and waveform structure)
+To quickly open the `xsim` GUI loaded with your `.wcfg` waveform setup:
 ```bash
-$ ../bin/xrun.sh -top adder_tb_top --name_of_test adder_basic_test --c -vivado "--g -view adder_tb_top_sim.wcfg"
+$ cmake --build build --target gui
 ```
-- `--name_of_test adder_basic_test`: Specifies the test case to run (default is `adder_basic_test`).
 
-### Step 3: Analyze results
-- For batch mode, check the console output for pass/fail status and logs.
-- For GUI mode, use the waveform viewer to debug and analyze signal activity.
-
-### Notes
-- The `--clean` option ensures a fresh build by removing intermediate files.
-- The `--vivado` option allows passing additional parameters directly to Vivado for customization.
-- **Important**: All scripts must be executed from the `build` folder to ensure correct relative paths are resolved.
-
-## Usage
+### Step 4: Clean Build
+To clean the entire build cache (equivalent to `--clean`), simply remove the build directory and reconfigure:
+```bash
+$ rm -rf build/
+$ cmake -S . -B build -DTOP_NAME=adder_tb_top
 ```
-xrun.sh [options]
 
-Options:
-  --t|-top <top_name>              Specify the top module name
-  --N|-name_of_test <test_name>    Specify the test name (default: adder_basic_test)
-  --h|help                         Display this help message
-  --c|-clean                       Clean build
-  --v|-vivado <"--vivado_params">  Pass Vivado parameters
-
-Use -v "--R" to run all, --v "--g" to gui, and --v "--g -view top_sim.wcfg" to load waveforms
-```
+### Summary of CMake Arguments
+| Variable | Default Value | Description |
+|---|---|---|
+| `TOP_NAME` | `adder_tb_top` | Specifies the top-level testbench module to load in elaboration. |
+| `TEST_NAME` | `adder_basic_test` | The UVM test name passed directly to `+UVM_TESTNAME` in `xsim`. |
+| `VIVADO_PARMS` | `--R` | Passes arbitrary flags natively to the simulation engine. |
 
 ## Important Information
 
