@@ -106,17 +106,22 @@ class adder_scoreboard extends uvm_scoreboard;
    * Logs the final test status (PASS/FAIL) based on the comparison results.
    */
   function void report_phase(uvm_phase phase);
+    string test_name;
+    if (!$value$plusargs("UVM_TESTNAME=%s", test_name)) begin
+      test_name = "TEST CASE";
+    end
+
     if (error == 0) begin
       $write("%c[7;32m",27);
-      $display("-------------------------------------------------");
-      $display("------ INFO : TEST CASE PASSED ------------------");
-      $display("-----------------------------------------");
+      $display("--------------------------------------------------");
+      $display("------ INFO : %0s PASSED ------------------", test_name);
+      $display("--------------------------------------------------");
       $write("%c[0m",27);
     end else begin
       $write("%c[7;31m",27);
-      $display("---------------------------------------------------");
-      $display("------ ERROR : TEST CASE FAILED ------------------");
-      $display("---------------------------------------------------");
+      $display("--------------------------------------------------");
+      $display("------ ERROR : %0s FAILED ------------------", test_name);
+      $display("--------------------------------------------------");
       $write("%c[0m",27);
     end
   endfunction 

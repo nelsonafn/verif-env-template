@@ -55,7 +55,7 @@ This template is designed to streamline the verification process, promote reusab
 ## How to run
 
 ### Step 1: Set up the environment
-Before running the simulation, ensure that the required tools (Vivado or Vitis) are sourced. This sets up the necessary environment variables for the tools to function correctly.
+Before running the simulation, you must source the required Xilinx tools (Vivado or Vitis). This injects the EDA toolpaths into your current terminal instance.
 
 ```bash
 $ source /opt/Xilinx/Vitis/2024.1/settings64.sh 
@@ -64,36 +64,53 @@ $ source /opt/Xilinx/Vivado/2024.1/.settings64-Vivado.sh
 ```
 
 ### Step 2: Configure the Build
-This project uses CMake to automate the Vivado simulation flow (`xvlog`, `xelab`, `xsim`), and provides a simple wrapper for ease of use.
+This project uses CMake to automate the Vivado simulation flow (`xvlog`, `xelab`, `xsim`). You generate an isolated `build/` directory using the provided wrapper script.
 
-#### Default / Common Configuration
-To configure for compiling `adder_tb_top` and running `adder_basic_test`:
 ```bash
+# Sets up the default simulation environment
 $ ./configure
 ```
+Under the hood, this parses your SV files, generates dependency trees via stamp files (so they only recompile when modified), and creates dynamically bound Make targets.
 
-#### Custom Parameter Configuration
+#### Custom Defaults Configuration
+If you want to bake a different default test sequence into the generated Makefiles:
 ```bash
 $ ./configure --top <top_name> --test <test_name>
 ```
 
 ### Step 3: Run the simulation
-After configuring, you can invoke the simulation via the standard `make` wrapper in the root directory:
+Because of the smart wrapper generated in the project root, you have several ways to trigger the simulations cleanly!
 
-#### Run all tests (Batch mode)
-To run all tests silently using the `-R` argument (default behavior when configured):
-```bash
-$ make sim
-```
+#### Option A: Running from the Project Root (Smart Proxy)
+You do not need to `cd build/`. You can immediately execute targets from the root, and it will intentionally forward your requests into CMake. It allows you to inject individual test names via spaces.
 
-#### Open the GUI (and waveform structure)
-To quickly open the `xsim` GUI loaded with your `.wcfg` waveform setup:
+- **`make compile`**: Explicitly compiles the library code (`xlog`) without running simulation.
+- **`make sim`**: Runs the default test configuration (e.g. `adder_basic_test`) silently in terminal.
+- **`make gui`**: Opens Vivado XSim GUI using your defined waveform layout.
+- **`make sim_<test_name>`**: Injects the test dynamically (e.g. `make sim_adder_corner_test`) replacing defaults.
+- **`make gui_<test_name>`**: Injects the test dynamically into the GUI directly (e.g. `make gui_adder_corner_test`).
+
+#### Option B: Running from inside the `build/` directory
+When inside the strictly generated CMake target directory, you can utilize the auto-generated target configurations. (Note: spaces denote multiple targets inside native Make!)
+
 ```bash
-$ make gui
+$ cd build/
 ```
+- **`make sim`**: Runs the default test configured.
+- **`make <test_name>`**: Runs a specific test dynamically discovered natively (e.g. `make adder_corner_test`).
+- **`make sim_<test_name>`**: Explicitly runs the auto-generated test strictly in SIM terminal mode.
+- **`make gui_<test_name>`**: Explicitly runs the auto-generated test natively triggering the Vivado GUI.
+
+#### Option C: Legacy Workflow Wrapper
+If you are strictly used to Xilinx environments parsing raw arguments, we provide a reverse-compatible wrapper that automatically triggers CMake and GNU Make behind the scenes.
+
+```bash
+$ bin/xrun.sh --name_of_test adder_corner_test
+```
+*(Runs completely self-contained from anywhere in the project tree.)*
 
 ### Step 4: Clean Build
-To clean the entire build cache (equivalent to standard `--clean`):
+To clean the entire build cache (safe compilation reset):
 ```bash
 $ make clean
 ```
@@ -103,7 +120,7 @@ $ make clean
 |---|---|---|
 | `--top` | `adder_tb_top` | Specifies the top-level testbench module to load in elaboration. |
 | `--test` | `adder_basic_test` | The UVM test name passed directly to `+UVM_TESTNAME` in `xsim`. |
-| `--vivado` | `--R` | Passes arbitrary flags natively to the simulation engine. |
+| `--vivado` | `--R` | Passes arbitrary flags natively to the simulation engine. (Setting `--g` turns on GUI mode) |
 
 
 ## Important Information
