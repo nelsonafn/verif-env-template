@@ -7,16 +7,16 @@
 // Date  : October 2023
 //------------------------------------------------------------------------------
 
-`ifndef ADDER_TEST_LIST 
-`define ADDER_TEST_LIST
+`ifndef ADDER_TEST_LIST_PKG
+`define ADDER_TEST_LIST_PKG
 
-package adder_test_list;
+package adder_test_list_pkg;
 
   import uvm_pkg::*;
   `include "uvm_macros.svh"
 
   import adder_env_pkg::*;
-  import adder_seq_list::*;
+  import adder_seq_list_pkg::*;
 
   /*
    * Including basic test definition

@@ -11,15 +11,6 @@ if(NOT DEFINED ENV{XILINX_VIVADO})
     message(WARNING "XILINX_VIVADO environment variable is not set. Ensure you have sourced settings64.sh!")
 endif()
 
-# Fetch source list paths from srclist2path.sh
-execute_process(
-    COMMAND bash "${CMAKE_SOURCE_DIR}/bin/srclist2path.sh" "${CMAKE_SOURCE_DIR}/srclist/${TOP_NAME}.srclist"
-    OUTPUT_VARIABLE SRCLIST_PATHS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-# Convert bash space-separated string to CMake list
-separate_arguments(SRCLIST_PATHS_LIST UNIX_COMMAND "${SRCLIST_PATHS}")
 
 # Convert VIVADO_PARMS so that multiple spaces/args aren't grouped as a single string
 separate_arguments(VIVADO_PARMS_LIST UNIX_COMMAND "${VIVADO_PARMS}")
@@ -31,11 +22,11 @@ message(STATUS "  - Test Name      : ${TEST_NAME}")
 message(STATUS "  - Vivado Params  : ${VIVADO_PARMS}")
 message(STATUS "--------------------------------------------------")
 
-# Compile target
+# Compile target (evaluates the source lists dynamically at build time)
 add_custom_target(compile
-    COMMAND xvlog -L uvm -sv "$ENV{XILINX_VIVADO}/data/system_verilog/uvm_1.2/uvm_macros.svh" ${SRCLIST_PATHS_LIST}
+    COMMAND bash -c "xvlog -L uvm -sv \"$ENV{XILINX_VIVADO}/data/system_verilog/uvm_1.2/uvm_macros.svh\" `bash \"${CMAKE_SOURCE_DIR}/bin/srclist2path.sh\" \"${CMAKE_SOURCE_DIR}/srclist/${TOP_NAME}.srclist\"`"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Compiling SystemVerilog and UVM sources..."
+    COMMENT "Compiling SystemVerilog and UVM sources dynamically..."
     VERBATIM
 )
 

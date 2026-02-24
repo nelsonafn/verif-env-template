@@ -15,7 +15,7 @@ import uvm_pkg::*;
 
 module adder_tb_top;
    
-  import adder_test_list::*;
+  import adder_test_list_pkg::*;
 
   /*
    * Local signal declarations and parameter definitions

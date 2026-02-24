@@ -7,10 +7,10 @@
 // Date  : October 2023
 //------------------------------------------------------------------------------
 
-`ifndef ADDER_SEQ_LIST 
-`define ADDER_SEQ_LIST
+`ifndef ADDER_SEQ_LIST_PKG 
+`define ADDER_SEQ_LIST_PKG
 
-package adder_seq_list;
+package adder_seq_list_pkg;
 
   import uvm_pkg::*;
   `include "uvm_macros.svh"
