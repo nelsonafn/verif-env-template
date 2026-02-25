@@ -157,7 +157,7 @@ add_custom_target(sim
 
 # 5. GUI target
 add_custom_target(gui
-    COMMAND bash -c "xsim top_sim --gui --view ${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}{TEST_NAME:-${TEST_NAME}}"
+    COMMAND bash -c "xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}{TEST_NAME:-${TEST_NAME}}"
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Opening simulation in Vivado GUI..."
@@ -194,7 +194,7 @@ foreach(TEST_FILE IN LISTS TEST_FILES)
     
     # Explicit GUI target (so user can type `make gui_adder_corner_test`)
     add_custom_target(gui_${INDIVIDUAL_TEST_NAME}
-        COMMAND bash -c "xsim top_sim --gui --view ${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
+        COMMAND bash -c "xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
         DEPENDS elaborate
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Opening GUI simulation: ${INDIVIDUAL_TEST_NAME}..."
