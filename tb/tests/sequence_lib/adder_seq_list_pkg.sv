@@ -22,6 +22,7 @@ package adder_seq_list_pkg;
   /*
    * Including basic sequence definition
    */
+  `include "adder_defines.svh"
   `include "adder_basic_seq.sv"
   `include "adder_corner_seq.sv"
 

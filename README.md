@@ -47,7 +47,7 @@ The verification template in this repository is designed to provide a modular an
 ### Source Organization
 - **RTL Design**: Located in the `rtl/` directory.
 - **Testbench Components**: Organized under `tb/` with subdirectories for agents, reference models, and top-level environment.
-- **Source Lists**: Defined in `srclist/` for easy inclusion in simulation scripts.
+- **Source Lists**: Defined in `srclist/` for easy inclusion in simulation scripts. Supports standard file paths, nested `.srclist` files (which create separate compilation libraries), and `+incdir+path/to/dir` directives for global UVM macro includes.
 - **Submodules**: Located in `src/` for easy integration with git submodules and dependencies.
 
 This template is designed to streamline the verification process, promote reusability, and ensure thorough testing of the adder design.
@@ -60,7 +60,11 @@ Before running the simulation, you must source the required Xilinx tools (Vivado
 ```bash
 $ source /opt/Xilinx/Vitis/2024.1/settings64.sh 
 # or
+$ source /opt/Xilinx/2025.2/Vivado/settings64.sh 
+# or
 $ source /opt/Xilinx/Vivado/2024.1/.settings64-Vivado.sh 
+# or
+$ source /opt/Xilinx/2025.2/Vivado/.settings64-Vivado.sh 
 ```
 
 ### Step 2: Configure the Build
@@ -84,7 +88,8 @@ Because of the smart wrapper generated in the project root, you have several way
 #### Option A: Running from the Project Root (Smart Proxy)
 You do not need to `cd build/`. You can immediately execute targets from the root, and it will intentionally forward your requests into CMake. It allows you to inject individual test names via spaces.
 
-- **`make compile`**: Explicitly compiles the library code (`xlog`) without running simulation.
+- **`make compile`**: Explicitly compiles the SV source code (`xvlog`) without running simulation.
+- **`make elaborate`**: Elaborates the compiled design into a simulation snapshot (`xelab`) without running simulation.
 - **`make sim`**: Runs the default test configuration (e.g. `adder_basic_test`) silently in terminal.
 - **`make gui`**: Opens Vivado XSim GUI using your defined waveform layout.
 - **`make sim_<test_name>`**: Injects the test dynamically (e.g. `make sim_adder_corner_test`) replacing defaults.
@@ -136,7 +141,8 @@ $ make clean
    - Check the `build/` directory for logs and intermediate files if issues arise during simulation.
 
 4. **Extending the Template**:
-   - To add new tests, create sequences in `tb/tests/sequence_lib/` and include them in `tb/tests/adder_test_list.sv`.
+   - To add new tests, create sequences in `tb/tests/sequence_lib/` and include them in `tb/tests/adder_seq_list_pkg.sv` and `tb/tests/adder_test_list_pkg.sv`.
+   - To add standalone shared components (like interfaces), map them to an `.srclist` module to build them as an independent library.
    - For additional coverage, extend the coverage model in `tb/env/top/adder_coverage.sv`.
 
 5. **Support**:
@@ -146,3 +152,7 @@ $ make clean
    - This project is distributed under the BSD license. Refer to the `LICENSE` file for details.
 
 This section provides essential details to ensure smooth usage and extension of the verification template.
+
+## Install cmake
+sudo apt install cmake
+sudo apt install autoconf
