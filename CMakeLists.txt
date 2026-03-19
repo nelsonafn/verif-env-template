@@ -120,9 +120,10 @@ function(compile_xvlog_library TARGET_LIB SV_FILES LOCAL_XVLOG_LIBS TARGET_DEPEN
     if(LOCAL_XVLOG_INCDIRS)
         list(APPEND LOCAL_XVLOG_ARGS ${LOCAL_XVLOG_INCDIRS})
     endif()
-    if(LOCAL_XVLOG_LIBS)
-        list(REMOVE_DUPLICATES LOCAL_XVLOG_LIBS)
-        foreach(LIB_NAME IN LISTS LOCAL_XVLOG_LIBS)
+    get_property(GLOBAL_SIM_LIBS GLOBAL PROPERTY ALL_SIM_LIBS)
+    if(GLOBAL_SIM_LIBS)
+        list(REMOVE_DUPLICATES GLOBAL_SIM_LIBS)
+        foreach(LIB_NAME IN LISTS GLOBAL_SIM_LIBS)
             list(APPEND LOCAL_XVLOG_ARGS "-L" "${LIB_NAME}")
         endforeach()
     endif()
@@ -150,6 +151,7 @@ function(compile_xvlog_library TARGET_LIB SV_FILES LOCAL_XVLOG_LIBS TARGET_DEPEN
     
     # Register this compilation target globally
     set_property(GLOBAL APPEND PROPERTY ALL_COMPILE_TARGETS "${TARGET_NAME}")
+    set_property(GLOBAL APPEND PROPERTY ALL_STAMP_FILES "${STAMP_FILE}")
 endfunction()
 
 # ==============================================================================
@@ -201,7 +203,7 @@ function(create_library_from_srclist SRCLIST_PATH TARGET_LIB)
 
         if(LINE MATCHES "^\\+incdir\\+(.*)$")
             list(APPEND LOCAL_XVLOG_INCDIRS "-i" "${CMAKE_SOURCE_DIR}/${CMAKE_MATCH_1}")
-            
+
         elseif(LINE MATCHES "\\.srclist$" OR LINE MATCHES "pkg\\.svh?$")
             # For both sub-lists and packages, we create an independent library target
             # and inherit it as a dependency for the current parent module list.
@@ -271,9 +273,12 @@ endif()
 # ==============================================================================
 
 # Elaborate target: links the compiled units into a simulated snapshot ('top_sim') using xelab.
+get_property(ALL_STAMP_FILES GLOBAL PROPERTY ALL_STAMP_FILES)
+string(REPLACE ";" " " STAMP_LIST "${ALL_STAMP_FILES}")
 add_custom_target(elaborate
+    COMMAND bash -c "for s in ${STAMP_LIST}; do if [ \"$s\" -nt xsim.dir/top_sim ]; then echo \"Library $s updated. Cleaning snapshot to force full elaboration.\"; rm -rf xsim.dir/top_sim; break; fi; done"
     COMMAND xelab ${TOP_NAME} -L uvm ${XELAB_LIBS} --timescale 1ns/1ps -s top_sim --debug typical --mt 16 --incr
-    DEPENDS compile
+    DEPENDS compile ${ALL_STAMP_FILES}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Elaborating design snapshot (top_sim)..."
     VERBATIM
