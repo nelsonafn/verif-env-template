@@ -104,13 +104,22 @@ function(compile_xvlog_library TARGET_LIB SV_FILES LOCAL_XVLOG_LIBS TARGET_DEPEN
     set(STAMP_FILE "${CMAKE_BINARY_DIR}/${TARGET_LIB}.stamp")
     
     # Broaden dependencies to include all .sv and .svh files in the same directories.
-    # This implicitly catches all `include files that aren't explicitly listed.
+    # We use CONFIGURE_DEPENDS so CMake knows to re-check these directories if files are added/removed.
     set(ALL_DEPENDS ${SV_FILES})
     foreach(SV_FILE IN LISTS SV_FILES)
         get_filename_component(SV_DIR "${SV_FILE}" DIRECTORY)
-        file(GLOB DIR_SVS "${SV_DIR}/*.sv" "${SV_DIR}/*.svh")
+        file(GLOB DIR_SVS CONFIGURE_DEPENDS "${SV_DIR}/*.sv" "${SV_DIR}/*.svh")
         list(APPEND ALL_DEPENDS ${DIR_SVS})
     endforeach()
+
+    # Also include files from the include directories to catch all `includes
+    foreach(INC_FLAG_OR_DIR IN LISTS LOCAL_XVLOG_INCDIRS)
+        if(NOT INC_FLAG_OR_DIR STREQUAL "-i")
+            file(GLOB_RECURSE INC_SVS CONFIGURE_DEPENDS "${INC_FLAG_OR_DIR}/*.sv" "${INC_FLAG_OR_DIR}/*.svh")
+            list(APPEND ALL_DEPENDS ${INC_SVS})
+        endif()
+    endforeach()
+
     if(ALL_DEPENDS)
         list(REMOVE_DUPLICATES ALL_DEPENDS)
     endif()
@@ -120,9 +129,10 @@ function(compile_xvlog_library TARGET_LIB SV_FILES LOCAL_XVLOG_LIBS TARGET_DEPEN
     if(LOCAL_XVLOG_INCDIRS)
         list(APPEND LOCAL_XVLOG_ARGS ${LOCAL_XVLOG_INCDIRS})
     endif()
-    if(LOCAL_XVLOG_LIBS)
-        list(REMOVE_DUPLICATES LOCAL_XVLOG_LIBS)
-        foreach(LIB_NAME IN LISTS LOCAL_XVLOG_LIBS)
+    get_property(GLOBAL_SIM_LIBS GLOBAL PROPERTY ALL_SIM_LIBS)
+    if(GLOBAL_SIM_LIBS)
+        list(REMOVE_DUPLICATES GLOBAL_SIM_LIBS)
+        foreach(LIB_NAME IN LISTS GLOBAL_SIM_LIBS)
             list(APPEND LOCAL_XVLOG_ARGS "-L" "${LIB_NAME}")
         endforeach()
     endif()
@@ -150,6 +160,7 @@ function(compile_xvlog_library TARGET_LIB SV_FILES LOCAL_XVLOG_LIBS TARGET_DEPEN
     
     # Register this compilation target globally
     set_property(GLOBAL APPEND PROPERTY ALL_COMPILE_TARGETS "${TARGET_NAME}")
+    set_property(GLOBAL APPEND PROPERTY ALL_STAMP_FILES "${STAMP_FILE}")
 endfunction()
 
 # ==============================================================================
@@ -201,7 +212,7 @@ function(create_library_from_srclist SRCLIST_PATH TARGET_LIB)
 
         if(LINE MATCHES "^\\+incdir\\+(.*)$")
             list(APPEND LOCAL_XVLOG_INCDIRS "-i" "${CMAKE_SOURCE_DIR}/${CMAKE_MATCH_1}")
-            
+
         elseif(LINE MATCHES "\\.srclist$" OR LINE MATCHES "pkg\\.svh?$")
             # For both sub-lists and packages, we create an independent library target
             # and inherit it as a dependency for the current parent module list.
@@ -271,19 +282,26 @@ endif()
 # ==============================================================================
 
 # Elaborate target: links the compiled units into a simulated snapshot ('top_sim') using xelab.
+get_property(ALL_STAMP_FILES GLOBAL PROPERTY ALL_STAMP_FILES)
+string(REPLACE ";" " " STAMP_LIST "${ALL_STAMP_FILES}")
 add_custom_target(elaborate
-    COMMAND xelab ${TOP_NAME} -L uvm ${XELAB_LIBS} --timescale 1ns/1ps -s top_sim --debug typical --mt 16 --incr
-    DEPENDS compile
+    COMMAND bash -c "for s in ${STAMP_LIST}; do if [ \"$s\" -nt xsim.dir/top_sim ]; then echo \"Library $s updated. Cleaning snapshot to force full elaboration.\"; rm -rf xsim.dir/top_sim; break; fi; done"
+    COMMAND xelab ${TOP_NAME} -L uvm ${XELAB_LIBS} --timescale 1ns/1ps -s top_sim --debug typical --mt 16 --incr $(ELAB_ARGS)
+    DEPENDS compile ${ALL_STAMP_FILES}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Elaborating design snapshot (top_sim)..."
     VERBATIM
 )
 
 set(DOLLAR "$")
+set(LBRACE "{")
+set(RBRACE "}")
 
 # Primary 'sim' target: executes the simulation engine headlessly in CLI (xsim)
+# Usage: SIM_ARGS="--testplusarg MY_ARG=1" make sim
+#        TEST_NAME=my_test make sim
 add_custom_target(sim
-    COMMAND bash -c "xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}{TEST_NAME:-${TEST_NAME}}"
+    COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}${LBRACE}TEST_NAME:-${TEST_NAME}${RBRACE} $(SIM_ARGS)
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running standard simulation in CLI..."
@@ -292,7 +310,7 @@ add_custom_target(sim
 
 # 'gui' target: executes the simulation engine visually in Vivado's GUI
 add_custom_target(gui
-    COMMAND bash -c "xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}{TEST_NAME:-${TEST_NAME}}"
+    COMMAND xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}${LBRACE}TEST_NAME:-${TEST_NAME}${RBRACE} $(SIM_ARGS)
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Opening simulation in Vivado GUI..."
@@ -315,7 +333,7 @@ foreach(TEST_FILE IN LISTS TEST_FILES)
     
     # Explicit CLI explicit simulator target specific to test structure
     add_custom_target(sim_${INDIVIDUAL_TEST_NAME}
-        COMMAND bash -c "xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
+        COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME} $(SIM_ARGS)
         DEPENDS elaborate
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Running explicit simulation in CLI view: ${INDIVIDUAL_TEST_NAME}..."
@@ -328,7 +346,7 @@ foreach(TEST_FILE IN LISTS TEST_FILES)
     
     # Explicit GUI explicit simulator target specific to test structure
     add_custom_target(gui_${INDIVIDUAL_TEST_NAME}
-        COMMAND bash -c "xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME}"
+        COMMAND xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME} $(SIM_ARGS)
         DEPENDS elaborate
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Opening explicitly designed GUI simulation: ${INDIVIDUAL_TEST_NAME}..."

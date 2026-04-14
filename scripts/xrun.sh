@@ -9,7 +9,7 @@ clear='\033[0m'  # Clear the color after that
 # Check if clean is requested
 check_clean() {
     echo -e "${yellow}Cleaning build directory natively with GNU Make...${clear}"
-    cd "$(dirname "$0")/.."
+    cd "${ROOT_DIR}"
     if [ -d "build" ] && [ -f "build/Makefile" ]; then
         make -C build clean
     else
@@ -82,6 +82,9 @@ main() {
     if [ $DO_CLEAN -eq 1 ]; then
         check_clean
     fi
+
+    # Compile tests
+    #${ROOT_DIR}/scripts/compile_tests.sh || error_exit "Error detected on compiling test!"
 
     # Go to root directory natively so configure works from wherever script is run
     cd "$ROOT_DIR" || exit 1
