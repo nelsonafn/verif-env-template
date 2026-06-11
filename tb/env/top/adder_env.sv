@@ -48,8 +48,8 @@ class adder_environment extends uvm_env;
    */
   function void connect_phase(uvm_phase phase);
     super.connect_phase(phase);
-    adder_agnt.driver.drv2rm_port.connect(ref_model.rm_export);
-    adder_agnt.monitor.mon2sb_port.connect(sb.mon2sb_export);
+    adder_agnt.mon2rm_port.connect(ref_model.rm_export);
+    adder_agnt.mon2sb_port.connect(sb.mon2sb_export);
     ref_model.rm2sb_port.connect(coverage.analysis_export);
     ref_model.rm2sb_port.connect(sb.rm2sb_export);
   endfunction : connect_phase

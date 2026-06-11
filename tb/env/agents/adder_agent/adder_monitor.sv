@@ -21,6 +21,7 @@ class adder_monitor extends uvm_monitor;
    * Declaration of Analysis ports and exports 
    */
   uvm_analysis_port #(adder_transaction) mon2sb_port;
+  uvm_analysis_port #(adder_transaction) mon2rm_port;
 
   /*
    * Declaration of transaction item 
@@ -37,8 +38,8 @@ class adder_monitor extends uvm_monitor;
    */
   function new (string name, uvm_component parent);
     super.new(name, parent);
-    act_trans = new();
     mon2sb_port = new("mon2sb_port", this);
+    mon2rm_port = new("mon2rm_port", this);
   endfunction : new
 
   /*
@@ -56,8 +57,14 @@ class adder_monitor extends uvm_monitor;
    * This phase continuously samples the transaction signals from the DUT.
    */
   virtual task run_phase(uvm_phase phase);
+    adder_transaction rm_trans;
     forever begin
       collect_trans();
+      $cast(rm_trans, act_trans.clone());
+      rm_trans.sum = '0;
+      rm_trans.cout = '0;
+      rm_trans.carry_out = '0;
+      mon2rm_port.write(rm_trans);
       mon2sb_port.write(act_trans);
     end
   endtask : run_phase
@@ -70,6 +77,7 @@ class adder_monitor extends uvm_monitor;
     wait(!vif.reset);
     @(vif.rc_cb);
     @(vif.rc_cb);
+    act_trans = adder_transaction::type_id::create("act_trans");
     act_trans.x = vif.rc_cb.x;
     act_trans.y = vif.rc_cb.y;
     act_trans.cin = vif.rc_cb.cin;

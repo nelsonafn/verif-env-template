@@ -19,6 +19,9 @@ class adder_agent extends uvm_agent;
   adder_sequencer sequencer;
   adder_monitor   monitor;
 
+  uvm_analysis_port#(adder_transaction) mon2sb_port;
+  uvm_analysis_port#(adder_transaction) mon2rm_port;
+
   /*
    * Declaration of component utils 
    */
@@ -36,16 +39,25 @@ class adder_agent extends uvm_agent;
    */
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    driver = adder_driver::type_id::create("driver", this);
-    sequencer = adder_sequencer::type_id::create("sequencer", this);
+    mon2sb_port = new("mon2sb_port", this);
+    mon2rm_port = new("mon2rm_port", this);
     monitor = adder_monitor::type_id::create("monitor", this);
+    if (get_is_active() == UVM_ACTIVE) begin
+      driver = adder_driver::type_id::create("driver", this);
+      sequencer = adder_sequencer::type_id::create("sequencer", this);
+    end
   endfunction : build_phase
 
   /*
    * Connect phase: connect TLM ports and exports (e.g., analysis port/exports)
    */
   function void connect_phase(uvm_phase phase);
-    driver.seq_item_port.connect(sequencer.seq_item_export);
+    super.connect_phase(phase);
+    monitor.mon2sb_port.connect(mon2sb_port);
+    monitor.mon2rm_port.connect(mon2rm_port);
+    if (get_is_active() == UVM_ACTIVE) begin
+      driver.seq_item_port.connect(sequencer.seq_item_export);
+    end
   endfunction : connect_phase
  
 endclass : adder_agent
