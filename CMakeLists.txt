@@ -287,6 +287,7 @@ string(REPLACE ";" " " STAMP_LIST "${ALL_STAMP_FILES}")
 add_custom_target(elaborate
     COMMAND bash -c "for s in ${STAMP_LIST}; do if [ \"$s\" -nt xsim.dir/top_sim ]; then echo \"Library $s updated. Cleaning snapshot to force full elaboration.\"; rm -rf xsim.dir/top_sim; break; fi; done"
     COMMAND xelab ${TOP_NAME} -L uvm ${XELAB_LIBS} --timescale 1ns/1ps -s top_sim --debug typical --mt 16 --incr $(ELAB_ARGS)
+    # COMMAND xelab ${TOP_NAME} -L uvm ${XELAB_LIBS} --timescale 1ns/1ps -s top_sim --debug typical --mt 16 --incr
     DEPENDS compile ${ALL_STAMP_FILES}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Elaborating design snapshot (top_sim)..."
