@@ -61,11 +61,12 @@ class adder_monitor extends uvm_monitor;
     forever begin
       collect_trans();
       $cast(rm_trans, act_trans.clone());
+      mon2sb_port.write(act_trans);
+      // Clean outputs and send it to reference model
       rm_trans.sum = '0;
       rm_trans.cout = '0;
       rm_trans.carry_out = '0;
       mon2rm_port.write(rm_trans);
-      mon2sb_port.write(act_trans);
     end
   endtask : run_phase
 
