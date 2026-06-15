@@ -44,7 +44,6 @@ class adder_corner_seq extends adder_basic_seq;
       `uvm_info(get_full_name(), $sformatf("CORNER TRANSACTION SENT FROM SEQUENCE"), UVM_LOW);
       req.print();
       finish_item(req);
-      get_response(rsp);
     end
   endtask
    

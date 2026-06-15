@@ -55,11 +55,7 @@ class adder_driver extends uvm_driver #(adder_transaction);
       drive();
       `uvm_info(get_full_name(),$sformatf("TRANSACTION FROM DRIVER"),UVM_LOW);
       req.print();
-      @(vif.dr_cb);
-      $cast(rsp,req.clone());
-      rsp.set_id_info(req);
       seq_item_port.item_done();
-      seq_item_port.put(rsp);
     end
   endtask : run_phase
 

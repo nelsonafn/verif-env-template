@@ -29,6 +29,13 @@ class adder_monitor extends uvm_monitor;
   adder_transaction act_trans;
 
   /*
+   * Local history variables to store inputs from the previous cycle
+   */
+  logic [3:0] x_prev;
+  logic [3:0] y_prev;
+  logic cin_prev;
+
+  /*
    * Declaration of component utils 
    */
   `uvm_component_utils(adder_monitor)
@@ -59,9 +66,33 @@ class adder_monitor extends uvm_monitor;
   virtual task run_phase(uvm_phase phase);
     adder_transaction rm_trans;
     wait(!vif.reset);
+    
+    // Wait for the first driver edge (posedge clk) and then the first sampling edge (negedge clk)
+    @(posedge vif.clk);
     @(vif.rc_cb);
+    x_prev = vif.rc_cb.x;
+    y_prev = vif.rc_cb.y;
+    cin_prev = vif.rc_cb.cin;
+
     forever begin
-      collect_trans();
+      // Wait exactly 1 clock cycle to get the outputs of the previous inputs,
+      // and the inputs of the current transaction.
+      @(vif.rc_cb);
+      
+      act_trans = adder_transaction::type_id::create("act_trans");
+      act_trans.x = x_prev;
+      act_trans.y = y_prev;
+      act_trans.cin = cin_prev;
+      act_trans.sum = vif.rc_cb.sum;
+      act_trans.cout = vif.rc_cb.cout;
+      `uvm_info(get_full_name(),$sformatf("TRANSACTION FROM MONITOR"),UVM_LOW);
+      act_trans.print();
+
+      // Store current inputs for the next cycle
+      x_prev = vif.rc_cb.x;
+      y_prev = vif.rc_cb.y;
+      cin_prev = vif.rc_cb.cin;
+
       $cast(rm_trans, act_trans.clone());
       mon2sb_port.write(act_trans);
       // Clean outputs and send it to reference model
@@ -71,24 +102,6 @@ class adder_monitor extends uvm_monitor;
       mon2rm_port.write(rm_trans);
     end
   endtask : run_phase
-
-  /*
-   * Task: collect_actual_trans
-   * Samples the transaction signals from the DUT.
-   */
-  task collect_trans();
-    wait(!vif.reset);
-    @(vif.rc_cb);
-    @(vif.rc_cb);
-    act_trans = adder_transaction::type_id::create("act_trans");
-    act_trans.x = vif.rc_cb.x;
-    act_trans.y = vif.rc_cb.y;
-    act_trans.cin = vif.rc_cb.cin;
-    act_trans.sum = vif.rc_cb.sum;
-    act_trans.cout = vif.rc_cb.cout;
-    `uvm_info(get_full_name(),$sformatf("TRANSACTION FROM MONITOR"),UVM_LOW);
-    act_trans.print();
-  endtask
 
 endclass : adder_monitor
 
