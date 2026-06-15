@@ -29,11 +29,13 @@ class adder_monitor extends uvm_monitor;
   adder_transaction act_trans;
 
   /*
-   * Local history variables to store inputs from the previous cycle
+   * Queue representing the active pipeline stages in the DUT.
+   * Since the DUT has registered outputs, there is a 1-cycle pipeline latency.
+   * When inputs are driven, we capture them in a transaction object and push it
+   * to this queue. On the next cycle, we pop the transaction from the queue,
+   * capture its registered outputs, and publish it.
    */
-  logic [3:0] x_prev;
-  logic [3:0] y_prev;
-  logic cin_prev;
+  adder_transaction pipeline_queue[$];
 
   /*
    * Declaration of component utils 
@@ -70,36 +72,38 @@ class adder_monitor extends uvm_monitor;
     // Wait for the first driver edge (posedge clk) and then the first sampling edge (negedge clk)
     @(posedge vif.clk);
     @(vif.rc_cb);
-    x_prev = vif.rc_cb.x;
-    y_prev = vif.rc_cb.y;
-    cin_prev = vif.rc_cb.cin;
 
     forever begin
-      // Wait exactly 1 clock cycle to get the outputs of the previous inputs,
-      // and the inputs of the current transaction.
-      @(vif.rc_cb);
-      
+      // Create a transaction to capture the current inputs
       act_trans = adder_transaction::type_id::create("act_trans");
-      act_trans.x = x_prev;
-      act_trans.y = y_prev;
-      act_trans.cin = cin_prev;
-      act_trans.sum = vif.rc_cb.sum;
-      act_trans.cout = vif.rc_cb.cout;
-      `uvm_info(get_full_name(),$sformatf("TRANSACTION FROM MONITOR"),UVM_LOW);
-      act_trans.print();
+      act_trans.x   = vif.rc_cb.x;
+      act_trans.y   = vif.rc_cb.y;
+      act_trans.cin = vif.rc_cb.cin;
+      
+      // Push this input-only transaction into our pipeline queue
+      pipeline_queue.push_back(act_trans);
 
-      // Store current inputs for the next cycle
-      x_prev = vif.rc_cb.x;
-      y_prev = vif.rc_cb.y;
-      cin_prev = vif.rc_cb.cin;
+      // Wait exactly 1 clock cycle for the DUT to register the outputs
+      @(vif.rc_cb);
 
-      $cast(rm_trans, act_trans.clone());
-      mon2sb_port.write(act_trans);
-      // Clean outputs and send it to reference model
-      rm_trans.sum = '0;
-      rm_trans.cout = '0;
-      rm_trans.carry_out = '0;
-      mon2rm_port.write(rm_trans);
+      // Pop the oldest transaction (which corresponds to the inputs from 1 cycle ago)
+      // and sample the corresponding outputs from the current cycle.
+      if (pipeline_queue.size() > 0) begin
+        adder_transaction completed_trans = pipeline_queue.pop_front();
+        completed_trans.sum  = vif.rc_cb.sum;
+        completed_trans.cout = vif.rc_cb.cout;
+
+        `uvm_info(get_full_name(),$sformatf("TRANSACTION FROM MONITOR"),UVM_LOW);
+        completed_trans.print();
+
+        $cast(rm_trans, completed_trans.clone());
+        mon2sb_port.write(completed_trans);
+        // Clean outputs and send it to reference model
+        rm_trans.sum = '0;
+        rm_trans.cout = '0;
+        rm_trans.carry_out = '0;
+        mon2rm_port.write(rm_trans);
+      end
     end
   endtask : run_phase
 
