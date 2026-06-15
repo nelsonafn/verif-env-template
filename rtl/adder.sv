@@ -11,14 +11,20 @@
 module adder #(
     parameter DATA_WIDTH = 4
 )(
-    input  logic [DATA_WIDTH-1:0] x,    // Input x
-    input  logic [DATA_WIDTH-1:0] y,    // Input y
-    input  logic                  cin,  // Carry-in input
-    output logic [DATA_WIDTH-1:0] sum,  // Sum output
-    output logic                  cout  // Carry-out output
+    input  logic                  clk,   // Clock input
+    input  logic                  reset, // Active-high reset input
+    input  logic [DATA_WIDTH-1:0] x,     // Input x
+    input  logic [DATA_WIDTH-1:0] y,     // Input y
+    input  logic                  cin,   // Carry-in input
+    output logic [DATA_WIDTH-1:0] sum,   // Registered sum output
+    output logic                  cout   // Registered carry-out output
 );
     // Internal carry wires
     logic [DATA_WIDTH:0] carry;
+
+    // Internal combinational sum and cout wires
+    logic [DATA_WIDTH-1:0] sum_comb;
+    logic                  cout_comb;
 
     // Assign carry-in to the first carry bit
     assign carry[0] = cin;
@@ -31,14 +37,25 @@ module adder #(
                 .x(x[i]),
                 .y(y[i]),
                 .cin(carry[i]),
-                .s(sum[i]),
+                .s(sum_comb[i]),
                 .cout(carry[i+1])
             );
         end
     endgenerate
 
-    // Assign the final carry-out
-    assign cout = carry[DATA_WIDTH];
+    // Assign the final carry-out combinational signal
+    assign cout_comb = carry[DATA_WIDTH];
+
+    // Registered output logic
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset) begin
+            sum  <= '0;
+            cout <= 1'b0;
+        end else begin
+            sum  <= sum_comb;
+            cout <= cout_comb;
+        end
+    end
 endmodule
 
 

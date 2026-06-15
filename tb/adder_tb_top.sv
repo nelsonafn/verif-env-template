@@ -53,6 +53,8 @@ module adder_tb_top;
    * Instantiates the adder DUT and connects it to the interface signals.
    */
   adder dut_inst(
+    .clk(adder_intf.clk),
+    .reset(adder_intf.reset),
     .x(adder_intf.x),
     .y(adder_intf.y),
     .cin(adder_intf.cin),

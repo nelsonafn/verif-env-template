@@ -58,6 +58,8 @@ class adder_monitor extends uvm_monitor;
    */
   virtual task run_phase(uvm_phase phase);
     adder_transaction rm_trans;
+    wait(!vif.reset);
+    @(vif.rc_cb);
     forever begin
       collect_trans();
       $cast(rm_trans, act_trans.clone());
