@@ -25,6 +25,7 @@ check_help() {
     echo "Options:"
     echo "  --t|-top <top_name>              Specify the top module name (default: ${TOP_NAME})"
     echo "  --N|-name_of_test <test_name>    Specify the test name (default: ${TEST_NAME})"
+    echo "  --seed <value>                   Specify the SV randomization seed (default: ${SEED})"
     echo "  --h|help                         Display this help message"
     echo "  --c|-clean                       Clean build"
     echo "  --v|-vivado <\"--vivado_params\">  Pass Vivado parameters"
@@ -46,18 +47,20 @@ CONFIG_FILE="${ROOT_DIR}/configure"
 # Default Settings (Extracted directly from ./configure)
 TOP_NAME=$(grep -oP '^TOP_NAME="\K[^"]+' "$CONFIG_FILE" || echo "adder_tb_top")
 TEST_NAME=$(grep -oP '^TEST_NAME="\K[^"]+' "$CONFIG_FILE" || echo "adder_basic_test")
+SEED=$(grep -oP '^SEED="\K[^"]+' "$CONFIG_FILE" || echo "1")
 VIVADO_PARMS=$(grep -oP '^VIVADO_PARMS="\K[^"]+' "$CONFIG_FILE" || echo "--R")
 DO_CLEAN=0
 RUN_TARGET="sim"
 
 # Parse parameters using getopts
 parse_params() {
-    options=$(getopt -a --longoptions help,clean,top:,name_of_test:,vivado: -n "xrun" -- ${0} "${@}")
+    options=$(getopt -a --longoptions help,clean,top:,name_of_test:,seed:,vivado: -n "xrun" -- ${0} "${@}")
     eval set -- "$options"
     while true; do
         case "$1" in
             --top) shift; TOP_NAME="$1" ;;
             --name_of_test) shift; TEST_NAME="$1" ;;
+            --seed) shift; SEED="$1" ;;
             --clean) DO_CLEAN=1 ;;
             --help) check_help ;;
             --vivado) 
@@ -93,11 +96,12 @@ main() {
     echo "------------------------------------------------"
     echo "  Module    : $TOP_NAME"
     echo "  Test      : $TEST_NAME"
+    echo "  Seed      : $SEED"
     echo "  Vivado    : $VIVADO_PARMS"
     echo "------------------------------------------------"
 
     # Forward arguments to our CMake configure wrapper
-    ./configure --top "${TOP_NAME}" --test "${TEST_NAME}" --vivado "${VIVADO_PARMS}" || error_exit "CMake Configuration Failed"
+    ./configure --top "${TOP_NAME}" --test "${TEST_NAME}" --seed "${SEED}" --vivado "${VIVADO_PARMS}" || error_exit "CMake Configuration Failed"
 
     echo -e "${green}Executing natively via GNU Make...${clear}"
     # The build script defaults the TEST_NAME inside CMake, so `make sim` runs that specific test correctly natively.

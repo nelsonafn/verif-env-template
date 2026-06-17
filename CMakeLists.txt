@@ -49,6 +49,7 @@ project(AdderTemplate NONE)
 # Example: cmake -DTOP_NAME=riscv_small_tb -DTEST_NAME=my_test ..
 set(TOP_NAME "adder_tb_top" CACHE STRING "Specify the exact top module name to be simulated")
 set(TEST_NAME "adder_basic_test" CACHE STRING "Specify the default UVM or SystemVerilog test name to run")
+set(SEED "1" CACHE STRING "Specify the default SystemVerilog randomization seed")
 set(VIVADO_PARMS "--R" CACHE STRING "Pass extra Vivado parameters for xsim (e.g. --R for run all)")
 
 # ==============================================================================
@@ -69,6 +70,7 @@ message(STATUS "--------------------------------------------------")
 message(STATUS "  Simulation Configuration:")
 message(STATUS "  - Top Module     : ${TOP_NAME}")
 message(STATUS "  - Test Name      : ${TEST_NAME}")
+message(STATUS "  - Seed           : ${SEED}")
 message(STATUS "  - Vivado Params  : ${VIVADO_PARMS}")
 message(STATUS "--------------------------------------------------")
 
@@ -302,7 +304,7 @@ set(RBRACE "}")
 # Usage: SIM_ARGS="--testplusarg MY_ARG=1" make sim
 #        TEST_NAME=my_test make sim
 add_custom_target(sim
-    COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}${LBRACE}TEST_NAME:-${TEST_NAME}${RBRACE} $(SIM_ARGS)
+    COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}${LBRACE}TEST_NAME:-${TEST_NAME}${RBRACE} --sv_seed ${DOLLAR}${DOLLAR}${LBRACE}SEED:-${SEED}${RBRACE} $(SIM_ARGS)
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running standard simulation in CLI..."
@@ -311,7 +313,7 @@ add_custom_target(sim
 
 # 'gui' target: executes the simulation engine visually in Vivado's GUI
 add_custom_target(gui
-    COMMAND xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}${LBRACE}TEST_NAME:-${TEST_NAME}${RBRACE} $(SIM_ARGS)
+    COMMAND xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${DOLLAR}${DOLLAR}${LBRACE}TEST_NAME:-${TEST_NAME}${RBRACE} --sv_seed ${DOLLAR}${DOLLAR}${LBRACE}SEED:-${SEED}${RBRACE} $(SIM_ARGS)
     DEPENDS elaborate
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Opening simulation in Vivado GUI..."
@@ -334,7 +336,7 @@ foreach(TEST_FILE IN LISTS TEST_FILES)
     
     # Explicit CLI explicit simulator target specific to test structure
     add_custom_target(sim_${INDIVIDUAL_TEST_NAME}
-        COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME} $(SIM_ARGS)
+        COMMAND xsim top_sim ${VIVADO_PARMS_LIST} --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME} --sv_seed ${DOLLAR}${DOLLAR}${LBRACE}SEED:-${SEED}${RBRACE} $(SIM_ARGS)
         DEPENDS elaborate
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Running explicit simulation in CLI view: ${INDIVIDUAL_TEST_NAME}..."
@@ -347,7 +349,7 @@ foreach(TEST_FILE IN LISTS TEST_FILES)
     
     # Explicit GUI explicit simulator target specific to test structure
     add_custom_target(gui_${INDIVIDUAL_TEST_NAME}
-        COMMAND xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME} $(SIM_ARGS)
+        COMMAND xsim top_sim --gui --view ../scripts/${TOP_NAME}_sim.wcfg --testplusarg UVM_TESTNAME=${INDIVIDUAL_TEST_NAME} --sv_seed ${DOLLAR}${DOLLAR}${LBRACE}SEED:-${SEED}${RBRACE} $(SIM_ARGS)
         DEPENDS elaborate
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Opening explicitly designed GUI simulation: ${INDIVIDUAL_TEST_NAME}..."
