@@ -61,9 +61,9 @@ class adder_ref_model extends uvm_component;
    */
   task get_expected_transaction(adder_transaction rm_trans);
     this.exp_trans = rm_trans;
+    {exp_trans.cout, exp_trans.sum} = exp_trans.x + exp_trans.y + exp_trans.cin;
     `uvm_info(get_full_name(), $sformatf("EXPECTED TRANSACTION FROM REF MODEL"), UVM_LOW);
     exp_trans.print();
-    {exp_trans.cout, exp_trans.sum} = exp_trans.x + exp_trans.y + exp_trans.cin;
     rm2sb_port.write(exp_trans);
   endtask
 

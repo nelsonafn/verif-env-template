@@ -38,7 +38,6 @@ class adder_basic_seq extends uvm_sequence#(adder_transaction);
       `uvm_info(get_full_name(), $sformatf("RANDOMIZED TRANSACTION FROM SEQUENCE"), UVM_LOW);
       req.print();
       finish_item(req);
-      get_response(rsp);
     end
   endtask
    

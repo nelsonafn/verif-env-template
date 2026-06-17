@@ -23,6 +23,7 @@ package adder_test_list_pkg;
    */
   `include "adder_basic_test.sv"
   `include "adder_corner_test.sv"
+  `include "adder_passive_test.sv"
 
 endpackage 
 

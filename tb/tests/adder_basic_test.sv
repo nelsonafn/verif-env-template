@@ -45,6 +45,7 @@ class adder_basic_test extends uvm_test;
   task run_phase(uvm_phase phase);
     phase.raise_objection(this);
     seq.start(env.adder_agnt.sequencer);
+    #20ns;
     phase.drop_objection(this);
   endtask : run_phase
  

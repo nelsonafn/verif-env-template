@@ -26,7 +26,6 @@ class adder_driver extends uvm_driver #(adder_transaction);
    * Declaration of component utils to register with factory 
    */
   `uvm_component_utils(adder_driver)
-  uvm_analysis_port#(adder_transaction) drv2rm_port;
 
   /*
    * Constructor
@@ -43,7 +42,6 @@ class adder_driver extends uvm_driver #(adder_transaction);
     super.build_phase(phase);
     if(!uvm_config_db#(virtual adder_interface)::get(this, "", "intf", vif))
       `uvm_fatal("NO_VIF",{"virtual interface must be set for: ",get_full_name(),".vif"});
-    drv2rm_port = new("drv2rm_port", this);
   endfunction: build_phase
 
   /*
@@ -57,12 +55,7 @@ class adder_driver extends uvm_driver #(adder_transaction);
       drive();
       `uvm_info(get_full_name(),$sformatf("TRANSACTION FROM DRIVER"),UVM_LOW);
       req.print();
-      @(vif.dr_cb);
-      $cast(rsp,req.clone());
-      rsp.set_id_info(req);
-      drv2rm_port.write(rsp);
       seq_item_port.item_done();
-      seq_item_port.put(rsp);
     end
   endtask : run_phase
 
